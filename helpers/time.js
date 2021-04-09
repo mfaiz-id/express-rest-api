@@ -3,7 +3,7 @@ const moment = require("moment");
 /**
  * @summary API answer convention
  */
-class SistemHelper {
+class Time {
   /**
    * Success answer
    * @param {*} data 
@@ -46,4 +46,4 @@ class SistemHelper {
 
 }
 
-module.exports = SistemHelper
+module.exports = Time

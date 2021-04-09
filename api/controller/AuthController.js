@@ -11,8 +11,7 @@ var smtpTransport = require('nodemailer-smtp-transport');
 const handlebars = require('handlebars');
 const moment = require("moment");
 const fs = require('fs');
-var NotifikasiController = require('../controller/NotifikasiController');
-const SistemHelper = require('../../Helpers/SistemHelper');
+const Time = require('../../helpers/time');
 const { validationResult } = require('express-validator');
 
 
@@ -159,13 +158,13 @@ exports.register_masyarakat = async function(req, res, next) {
                     
                     
                     // start kirim email
-                    const get_app_config = await knex.raw(`select nama_sistem, base_url, email_smtp, pass_smtp from app_config where status ='1'`)
+                    const get_app_config = await knex.raw(`select * from config where active=true`)
                     const app_config = get_app_config.rows[0]
                     
                     const tanggal_v1 = moment(new Date()).format('YYYY-MM-DD')
                     const tanggal_v2 = moment(new Date()).format('ddd') // format hari
-                    var tgl = SistemHelper.generate_tanggal_indonesia_v1(tanggal_v1);
-                    var nama_hari = SistemHelper.get_hari(tanggal_v2);
+                    var tgl = Time.generate_tanggal_indonesia_v1(tanggal_v1);
+                    var nama_hari = Time.get_hari(tanggal_v2);
                     var tgl_hari_ini = nama_hari+', '+tgl;
 
                     var fileHtml = fs.readFileSync('views/email/template-email.html','utf8')
@@ -478,7 +477,7 @@ exports.verifikasi_akun = async function(req, res, next) {
             const data_user = cek_user.rows[0];
             if(data_user.status=="1"){
                 const tanggal_verifikasi = moment(data_user.email_verified_at).format('YYYY-MM-DD')
-                var tgl = SistemHelper.generate_tanggal_indonesia_v1(tanggal_verifikasi);
+                var tgl = Time.generate_tanggal_indonesia_v1(tanggal_verifikasi);
                 res.json({
                     success: false,
                     icon:'info',
@@ -520,7 +519,7 @@ exports.verifikasi_akun = async function(req, res, next) {
     }
 };
 exports.send_email_reset_password = async function(req, res, next) {
-    const inputPost = req.body;
+  const inputPost = req.body;
   const email     = inputPost.email;
   const get_app_config = await knex.raw(`select nama_sistem, base_url, email_smtp, pass_smtp from app_config where status ='1'`)
   const app_config = get_app_config.rows[0]
@@ -531,8 +530,8 @@ exports.send_email_reset_password = async function(req, res, next) {
     const users = get_user.rows[0]
     const tanggal_v1 = moment(new Date()).format('YYYY-MM-DD')
     const tanggal_v2 = moment(new Date()).format('ddd') // format hari
-    var tgl = SistemHelper.generate_tanggal_indonesia_v1(tanggal_v1);
-    var nama_hari = SistemHelper.get_hari(tanggal_v2);
+    var tgl = Time.generate_tanggal_indonesia_v1(tanggal_v1);
+    var nama_hari = Time.get_hari(tanggal_v2);
     var tgl_hari_ini = nama_hari+', '+tgl;
 
     var fileHtml = fs.readFileSync('views/email/template-lupa-password.html','utf8')
@@ -624,183 +623,4 @@ exports.update_firebase_token = async function(req, res) {
       success : true,
       message : 'Data firebase token berhasil di update !',
     })
-};
-
-exports.read_notifikasi = async function(req, res) {
-    const data              = req.body;
-    const id_notifikasi     = data.id_notifikasi;
-    
-    await knex('notifikasi')
-    .where('id_notifikasi', id_notifikasi)
-    .update({
-        status  : '2',
-        updated_at       :  moment(new Date()).format('YYYY-MM-DD HH:mm:ss'),
-    })
-    return res.json({
-      success : true,
-      message : 'Data notifikasi berhasil di update !',
-    })
-};
-
-exports.list_notifikasi = async function(req, res) {
-    const inputPost     = req.body;
-    const id_user_penerima   = inputPost.id_user;
-
-    var pg   = inputPost.pg;
-    var keyword   = inputPost.keyword;
-    var limit     = inputPost.limit;
-    var offset    = (limit * pg) - limit;
-
-    if(keyword==null){
-      var keyword = ''
-    }
-
-    let raw_query_jml = `
-        select count(*) as jml_belum_dibaca from notifikasi n 
-        where n.id_user_penerima  = '${id_user_penerima}' and n.status = '1'
-    `
-    let data_jml = await knex.raw(raw_query_jml)
-
-    let raw_query = `
-        select *, 
-        (
-            select u."name"from users u
-            where u.id::varchar = n.id_user_penerima 
-        ) nama_user_penerima,
-        (
-            select u."name"from users u
-            where u.id::varchar = n.id_user_pengirim 
-        ) nama_user_pengirim
-        from notifikasi n
-        where id_user_penerima = '${id_user_penerima}'  and concat(keterangan) ilike '%${keyword}%' and n.status in ('1', '2')
-    `
-    raw_query  += ` order by n.created_at desc`
-    raw_query += ` limit ${limit} offset ${offset} `;
-    
-    let e = await knex.raw(raw_query)
-
-
-    let exist = e.rows
-    if(exist.length >0){
-        var datax = []
-        for (let index = 0; index < exist.length; index++) {
-            const n = exist[index];
-            const waktu = await this.date_diff(n.created_at)
-            moment.locale("id");
-            let waktu_full =  moment(n.created_at).format('DD MMMM YYYY HH:mm');
-
-            let temp = {
-                id_notifikasi: n.id_notifikasi,
-                keterangan: n.keterangan,
-                id_user_penerima: n.id_user_penerima,
-                id_unit_penerima: n.id_unit_penerima,
-                role_penerima: n.role_penerima,
-                nama_user_penerima: n.nama_user_penerima,
-                id_user_pengirim: n.id_user_pengirim,
-                role_pengirim: n.role_pengirim,
-                nama_user_pengirim: (n.nama_user_pengirim) ? n.nama_user_pengirim  : '',
-                status: n.status,
-                url_web: n.url_web,
-                kode_notifikasi: n.kode_notifikasi,
-                data_terkait: JSON.parse(n.data_terkait),
-                waktu_convert: waktu,
-                waktu_full: waktu_full,
-                updated_at: n.updated_at,
-            }
-            datax.push(temp)
-        }
-
-        return res.json({
-            success : true,
-            message : 'Data Notifikasi Ditemukan!',
-            jumlah_belum_dibaca : data_jml.rows[0].jml_belum_dibaca,
-            data_notifikasi : datax
-        })
-    }else{
-        return res.json({
-            success : false,
-            message : 'Data Notifikasi Tidak Ditemukan!',
-            data_notifikasi: []
-        })
-    }
-};
-
-// kjkdf
-date_diff = async function(waktu){
-    var tanggal_awal = moment(waktu).format('DD/MM/YYYY HH:mm:ss');
-    var tanggal_sekarang = moment(new Date()).format('DD/MM/YYYY HH:mm:ss');
-
-    // //rubah fortmat tanggal ke moment
-    var tanggal_awal_moment = moment(tanggal_awal,'DD/MM/YYYY HH:mm:ss');
-    var tanggal_sekarang_moment = moment(tanggal_sekarang,'DD/MM/YYYY HH:mm:ss');
-
-    // //mencari selisih per tahun, per bulan dan per hari
-    var selisih_tahun = tanggal_sekarang_moment.diff(tanggal_awal_moment,'years');
-    var selisih_bulan = tanggal_sekarang_moment.diff(tanggal_awal_moment,'months');
-    var selisih_hari = tanggal_sekarang_moment.diff(tanggal_awal_moment,'days');
-    var selisih_jam = tanggal_sekarang_moment.diff(tanggal_awal_moment,'hours');
-    var selisih_menit = tanggal_sekarang_moment.diff(tanggal_awal_moment,'minutes');
-    var selisih_detik = tanggal_sekarang_moment.diff(tanggal_awal_moment,'seconds');
-
-    if((selisih_tahun!="0") || (selisih_bulan!="0")){
-        moment.locale("id");
-        return moment(waktu).format('DD MMMM YYYY HH:mm');
-    }else{
-        if(selisih_hari!="0"){
-            return selisih_hari+" hari yang lalu";
-        }else{
-            if(selisih_jam!="0"){
-                return selisih_jam+" jam yang lalu";
-            }else{
-                if(selisih_menit!="0"){
-                    return selisih_menit+" menit yang lalu";
-                }else{
-                    if(selisih_detik!="0"){
-                        return selisih_detik+" detik yang lalu";
-                    }	
-                }
-            }
-        }
-    }
-}
-exports.send_fcm_notifikasi = async function(req, res){
-    var fcm = new FCM(serverKey);
-
-    var message = { //this may vary according to the message type (single recipient, multicast, topic, et cetera)
-        to: 'fOdxn1LPQnew3_uqnhi6JD:APA91bGPPYkLpG6X-E8EmnZhZ3A1MASsyBmZC4UFOH4aDEkBNbeyGP_A2El11bB2UXeOTYU-DaYDDGcy1dVBYUpdGYCc4s3hqzMiN09tdOdJMK4DWgNnSA6BVdZY5eEPNHF-t3ZkRXxp', 
-        
-        notification: {
-            title: 'Title of your push notification', 
-            body: 'Body of your push notification' 
-        },
-        
-        data: {  //you can send only notification or only data(or include both)
-            my_key: 'my value',
-            my_another_key: 'my another value'
-        }
-    };
-    
-    fcm.send(message, function(err, response){
-        if (err) {
-            console.log('err', err)
-            console.log("Something has gone wrong!");
-        } else {
-            console.log("Successfully sent with response: ", response);
-        }
-    });
-};
-exports.tes_notifikasi = async function(req, res){
-    const notifikasi = new NotifikasiController();
-    const save_notifikasi = await notifikasi.save_notifikasi({
-        keterangan:'Tes Notifikasi',
-        id_user_penerima:'id-user-penerima',
-        role_penerima:'role-user-penerima',
-        id_user_pengirim:'id-user-pengirim',
-        role_pengirim:'role-user-pengirim',
-        status:'1',
-        url_web:'/my-order',
-        kode_notifikasi:'NOTIFTES',
-        data_terkait:'',
-    })
-    res.json(save_notifikasi)
 };
