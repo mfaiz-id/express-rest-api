@@ -1,14 +1,6 @@
 'use strict'
 const moment = require("moment");
-/**
- * @summary API answer convention
- */
 class Time {
-  /**
-   * Success answer
-   * @param {*} data 
-   * @returns {JSON} JSON answer
-   */
   static get_hari(day) {
     var nama_hari = '';
     switch(day) {
