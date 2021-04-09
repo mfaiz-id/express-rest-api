@@ -3,7 +3,6 @@ const bcrypt = require ("bcrypt");
 const jwt = require('jsonwebtoken');
 var User = require('../models/User');
 var UserHasRoles = require('../models/UserHasRoles');
-var TAnggota = require('../models/TAnggota');
 const Log = require('../models/Log');
 const knex = require('../../db/knex');
 var nodemailer = require('nodemailer');
@@ -12,8 +11,6 @@ const handlebars = require('handlebars');
 const moment = require("moment");
 const fs = require('fs');
 const Time = require('../../helpers/time');
-const { validationResult } = require('express-validator');
-
 
 var serverKey = 'keyfirebasetoken';
 var FCM = require('fcm-node');
@@ -361,7 +358,7 @@ exports.verifikasi_akun = async function(req, res, next) {
 exports.send_email_reset_password = async function(req, res, next) {
   const inputPost = req.body;
   const email     = inputPost.email;
-  const get_app_config = await knex.raw(`select nama_sistem, base_url, email_smtp, pass_smtp from app_config where status ='1'`)
+  const get_app_config = await knex.raw(`select * from config where active=true`)
   const app_config = get_app_config.rows[0]
 
   const get_user = await knex.raw(` select * from users where email = '${email}' `)
