@@ -15,8 +15,13 @@ module.exports = {
     }
   },
   development: {
-    client: 'pg',
-    connection: "postgres://postgres:1234@postgres:5432/db_conference",
+    client: 'mysql',
+    connection: {
+      host : '127.0.0.1',
+      user : 'root',
+      password : '',
+      database : 'workshop_nuxt'
+    },
     migrations: {
       directory: __dirname + '/db/migrations'
     },

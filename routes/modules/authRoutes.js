@@ -1,4 +1,6 @@
 const express = require("express");
+const dotenv = require("dotenv");
+dotenv.config();
 const jwtMiddleware = require('express-jwt-middleware');
 var jwtCheck = jwtMiddleware(process.env.API_SECRET)
 const auth_api = require("../../api/controller/AuthController");
